@@ -1,0 +1,26 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: cloudmart123
+      MYSQL_DATABASE: cloudmart
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db_data:/var/lib/mysql
+
+  product-service:
+    build: ./product-service
+    ports:
+      - "5001:5001"
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: cloudmart123
+      DB_NAME: cloudmart
+    depends_on:
+      - db
+
+volumes:
+  db_data:
