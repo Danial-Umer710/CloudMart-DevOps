@@ -1,9 +1,8 @@
-name: Deploy Frontend to Amazon EC2
+name: Deploy CloudMart Services
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
@@ -23,14 +22,21 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build, Tag, and Push Image to ECR
+      - name: Build and Push All Images
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        working-directory: ./frontend
         run: |
-          # Now that we are inside the frontend folder, Docker will find the Dockerfile easily
-          docker build -t $ECR_REGISTRY/cloudmart-frontend:latest .
+          # 1. Frontend
+          docker build -t $ECR_REGISTRY/cloudmart-frontend:latest -f frontend/Dockerfile ./frontend
           docker push $ECR_REGISTRY/cloudmart-frontend:latest
+          
+          # 2. Product Service
+          docker build -t $ECR_REGISTRY/cloudmart-product-service:latest -f product-service/Dockerfile ./product-service
+          docker push $ECR_REGISTRY/cloudmart-product-service:latest
+          
+          # 3. Order Service
+          docker build -t $ECR_REGISTRY/cloudmart-order-service:latest -f order-service/Dockerfile ./order-service
+          docker push $ECR_REGISTRY/cloudmart-order-service:latest
 
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@master
@@ -39,17 +45,39 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. Login to ECR on the EC2 instance
-            aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 407676142570.dkr.ecr.eu-north-1.amazonaws.com
+            # Define Variables locally for the script
+            REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+            REGION="${{ secrets.AWS_REGION }}"
             
-            # 2. Pull the latest image
-            sudo docker pull 407676142570.dkr.ecr.eu-north-1.amazonaws.com/cloudmart-frontend:latest
+            # Login to ECR on EC2
+            aws ecr get-login-password --region $REGION | sudo docker login --username AWS --password-stdin $REGISTRY
             
-            # 3. Stop and remove the old container if it exists
+            # --- UPDATE PRODUCT SERVICE ---
+            sudo docker pull $REGISTRY/cloudmart-product-service:latest
+            sudo docker rm -f product-service || true
+            sudo docker run -d --name product-service \
+              --network cloudmart-network \
+              -e DB_HOST=db \
+              -e DB_USER=root \
+              -e DB_PASSWORD=cloudmart_password \
+              -e DB_NAME=cloudmart \
+              $REGISTRY/cloudmart-product-service:latest
+
+            # --- UPDATE ORDER SERVICE ---
+            sudo docker pull $REGISTRY/cloudmart-order-service:latest
+            sudo docker rm -f order-service || true
+            sudo docker run -d --name order-service \
+              --network cloudmart-network \
+              -e DB_HOST=db \
+              -e DB_USER=root \
+              -e DB_PASSWORD=cloudmart_password \
+              -e DB_NAME=cloudmart \
+              $REGISTRY/cloudmart-order-service:latest
+
+            # --- UPDATE FRONTEND ---
+            sudo docker pull $REGISTRY/cloudmart-frontend:latest
             sudo docker rm -f frontend || true
-            
-            # 4. Run the new container on port 3000
             sudo docker run -d -p 3000:80 \
               --name frontend \
               --network cloudmart-network \
-              407676142570.dkr.ecr.eu-north-1.amazonaws.com/cloudmart-frontend:latest
+              $REGISTRY/cloudmart-frontend:latest
