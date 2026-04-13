@@ -3,7 +3,7 @@ name: Deploy Frontend to Amazon EC2
 on:
   push:
     branches:
-      - main  # This triggers the robot whenever you push code to 'main'
+      - main
 
 jobs:
   deploy:
@@ -26,9 +26,9 @@ jobs:
       - name: Build, Tag, and Push Image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ACCOUNT_ID: 407676142570 # Replace with your actual ID if different
         run: |
-          docker build -t $ECR_REGISTRY/cloudmart-frontend:latest ./frontend
+          # Building using the specific Dockerfile found in ./frontend
+          docker build -t $ECR_REGISTRY/cloudmart-frontend:latest -f ./frontend/Dockerfile ./frontend
           docker push $ECR_REGISTRY/cloudmart-frontend:latest
 
       - name: Deploy to EC2 via SSH
@@ -38,8 +38,17 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Pull the new image and restart the container
-            aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 407676142570.dkr.ecr.eu-north-1.amazonaws.com
-            sudo docker pull 407676142570.dkr.ecr.eu-north-1.amazonaws.com/cloudmart-frontend:latest
+            # 1. Login to ECR on the EC2 instance
+            aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            
+            # 2. Pull the latest image
+            sudo docker pull ${{ steps.login-ecr.outputs.registry }}/cloudmart-frontend:latest
+            
+            # 3. Stop and remove the old container if it exists
             sudo docker rm -f frontend || true
-            sudo docker run -d -p 3000:80 --name frontend --network cloudmart-network 407676142570.dkr.ecr.eu-north-1.amazonaws.com/cloudmart-frontend:latest
+            
+            # 4. Run the new container on port 3000
+            sudo docker run -d -p 3000:80 \
+              --name frontend \
+              --network cloudmart-network \
+              ${{ steps.login-ecr.outputs.registry }}/cloudmart-frontend:latest
