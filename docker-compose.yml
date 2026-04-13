@@ -38,15 +38,26 @@ services:
      ports:
        - "5002:5002"
      environment:
+       PYTHONBUFFERED: "1"
        DB_HOST: db
        DB_USER: root
        DB_PASSWORD: rootpassword
-       DB_NAME: cloudmart
+       DB_DATABASE: cloudmart
      depends_on:
        - db
      deploy:
        resources:
          limits:
            memory: 256M
+  frontend:
+     build: ./frontend
+     ports:
+       - "8080:80"
+     depends_on:
+       - product-service
+       - user-service
+       - order-service
+
 volumes:
   db_data:
+

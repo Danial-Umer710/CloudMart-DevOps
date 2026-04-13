@@ -1,0 +1,6 @@
+.terraform/
+terraform-docs/.terraform/
+aws/
+awscliv2.zip
+*.zip
+node_modules/

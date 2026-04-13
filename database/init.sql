@@ -40,4 +40,7 @@ INSERT INTO products (name, description, price, stock, category) VALUES
 ('Phone', 'Latest smartphone', 699.99, 100, 'Electronics'),
 ('Headphones', 'Noise cancelling headphones', 199.99, 75, 'Electronics'),
 ('Desk Chair', 'Ergonomic office chair', 299.99, 30, 'Furniture'),
-('Monitor', '4K Ultra HD monitor', 449.99, 45, 'Electronics');
+('Monitor', '4K Ultra HD monitor', 449.99, 45, 'Electronics'),
+('Gaming Mouse', 'RGB wireless gaming mouse', 49.99, 50, 'Accessories'),
+('Mechanical Keyboard', 'Blue switch mechanical keyboard', 89.99, 30, 'Accessories'),
+('Webcam 4K', 'Ultra HD webcam for streaming', 129.99, 20, 'Electronics');
