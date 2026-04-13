@@ -1,0 +1,45 @@
+name: Deploy Frontend to Amazon EC2
+
+on:
+  push:
+    branches:
+      - main  # This triggers the robot whenever you push code to 'main'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, Tag, and Push Image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ACCOUNT_ID: 407676142570 # Replace with your actual ID if different
+        run: |
+          docker build -t $ECR_REGISTRY/cloudmart-frontend:latest ./frontend
+          docker push $ECR_REGISTRY/cloudmart-frontend:latest
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_PUBLIC_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Pull the new image and restart the container
+            aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 407676142570.dkr.ecr.eu-north-1.amazonaws.com
+            sudo docker pull 407676142570.dkr.ecr.eu-north-1.amazonaws.com/cloudmart-frontend:latest
+            sudo docker rm -f frontend || true
+            sudo docker run -d -p 3000:80 --name frontend --network cloudmart-network 407676142570.dkr.ecr.eu-north-1.amazonaws.com/cloudmart-frontend:latest
