@@ -73,6 +73,7 @@ jobs:
             sudo docker pull $REGISTRY/cloudmart-order-service:latest
             sudo docker rm -f order-service || true
             sudo docker run -d --name order-service \
+              -p 8080:8080 \ 
               --network cloudmart-network \
               -e DB_HOST=db \
               -e DB_USER=root \
