@@ -25,9 +25,13 @@ jobs:
       - name: Build and Push All Images
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          # This variable captures the secret for the build step
+          REACT_APP_API_URL: http://${{ secrets.EC2_PUBLIC_IP }}:5001
         run: |
-          # 1. Frontend
-          docker build -t $ECR_REGISTRY/cloudmart-frontend:latest -f frontend/Dockerfile ./frontend
+          # 1. Frontend - Using build-arg to "stamp" the IP into the code
+          docker build -t $ECR_REGISTRY/cloudmart-frontend:latest \
+            --build-arg REACT_APP_API_URL=$REACT_APP_API_URL \
+            -f frontend/Dockerfile ./frontend
           docker push $ECR_REGISTRY/cloudmart-frontend:latest
           
           # 2. Product Service
@@ -53,9 +57,11 @@ jobs:
             aws ecr get-login-password --region $REGION | sudo docker login --username AWS --password-stdin $REGISTRY
             
             # --- UPDATE PRODUCT SERVICE ---
+            # Added -p 5001:5001 so the port is exposed to the internet
             sudo docker pull $REGISTRY/cloudmart-product-service:latest
             sudo docker rm -f product-service || true
             sudo docker run -d --name product-service \
+              -p 5001:5001 \
               --network cloudmart-network \
               -e DB_HOST=db \
               -e DB_USER=root \
