@@ -2,9 +2,17 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import mysql.connector
 import os
+# 1. Import the exporter
+from prometheus_flask_exporter import PrometheusMetrics
 
 app = Flask(__name__)
 CORS(app)
+
+# 2. Initialize metrics
+metrics = PrometheusMetrics(app)
+
+# Static information as metric
+metrics.info('app_info', 'Product Service info', version='1.0.0')
 
 def get_db():
     return mysql.connector.connect(

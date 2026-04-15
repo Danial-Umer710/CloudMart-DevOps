@@ -52,15 +52,17 @@ resource "aws_subnet" "private_subnet" {
   vpc_id            = aws_vpc.cloudmart_vpc.id
   cidr_block        = "10.0.2.0/24"
   availability_zone = "eu-north-1a"
-  tags                    = { Name = "cloudmart-private-subnet" }
+  tags              = { Name = "cloudmart-private-subnet" }
 }
-# NEW: Third subnet in a different AZ for RDS requirements
+
+# RDS requires subnets in at least two different Availability Zones
 resource "aws_subnet" "private_subnet_2" {
   vpc_id            = aws_vpc.cloudmart_vpc.id
   cidr_block        = "10.0.3.0/24"
-  availability_zone = "eu-north-1b" # Note the 'b' here!
+  availability_zone = "eu-north-1b" # Different AZ
   tags              = { Name = "cloudmart-private-subnet-2" }
 }
+
 # 6. ROUTING
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.cloudmart_vpc.id
@@ -94,18 +96,45 @@ resource "aws_security_group" "web_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   ingress {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-ingress {
-  from_port   = 3000
-  to_port     = 3000
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-}
+
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # API Port for Product Service
+  ingress {
+    from_port   = 5001
+    to_port     = 5001
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # NEW: Prometheus UI
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # NEW: Grafana UI
+  ingress {
+    from_port   = 3001
+    to_port     = 3001
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -148,9 +177,15 @@ resource "aws_instance" "cloudmart_web" {
   instance_type          = "t3.micro"
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.web_sg.id]
-  key_name= "cloudmart-final-key"
+  key_name               = "cloudmart-final-key"
   iam_instance_profile   = aws_iam_instance_profile.ec2_ecr_profile.name
   tags                   = { Name = "cloudmart-web-server" }
+
+  # UPDATED: Disk increased to 20GB to allow room for Docker monitoring images
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+  }
 
   user_data = <<-EOF
               #!/bin/bash
@@ -173,6 +208,7 @@ resource "aws_ecr_repository" "product_service" {
   image_tag_mutability = "MUTABLE"
   force_delete         = true
 }
+
 resource "aws_ecr_repository" "cloudmart_frontend" {
   name                 = "cloudmart-frontend"
   image_tag_mutability = "MUTABLE"
