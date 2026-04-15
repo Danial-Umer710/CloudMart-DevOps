@@ -54,7 +54,13 @@ resource "aws_subnet" "private_subnet" {
   availability_zone = "eu-north-1a"
   tags                    = { Name = "cloudmart-private-subnet" }
 }
-
+# NEW: Third subnet in a different AZ for RDS requirements
+resource "aws_subnet" "private_subnet_2" {
+  vpc_id            = aws_vpc.cloudmart_vpc.id
+  cidr_block        = "10.0.3.0/24"
+  availability_zone = "eu-north-1b" # Note the 'b' here!
+  tags              = { Name = "cloudmart-private-subnet-2" }
+}
 # 6. ROUTING
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.cloudmart_vpc.id
