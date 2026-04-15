@@ -1,4 +1,5 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, Response  # Add Response here
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST # Add this line
 from flask_cors import CORS
 import mysql.connector
 import os
@@ -9,7 +10,11 @@ app = Flask(__name__)
 CORS(app)
 
 # 2. Initialize metrics
-metrics = PrometheusMetrics(app)
+metrics = PrometheusMetrics(app, path=None) # We set path to None to handle it manually
+
+@app.route('/metrics')
+def metrics_endpoint():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 # Static information as metric
 metrics.info('app_info', 'Product Service info', version='1.0.0')
