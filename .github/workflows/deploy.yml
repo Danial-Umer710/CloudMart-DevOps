@@ -25,10 +25,10 @@ jobs:
       - name: Build and Push All Images
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          # This variable captures the secret for the build step
+          # Stamps the EC2 IP into the Frontend so it knows where the API lives
           REACT_APP_API_URL: http://${{ secrets.EC2_PUBLIC_IP }}:5001
         run: |
-          # 1. Frontend - Using build-arg to "stamp" the IP into the code
+          # 1. Frontend
           docker build -t $ECR_REGISTRY/cloudmart-frontend:latest \
             --build-arg REACT_APP_API_URL=$REACT_APP_API_URL \
             -f frontend/Dockerfile ./frontend
@@ -49,23 +49,22 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Define Variables locally for the script
+            # Define Variables
             REGISTRY="${{ steps.login-ecr.outputs.registry }}"
             REGION="${{ secrets.AWS_REGION }}"
             
-            # Login to ECR on EC2
+            # Login to ECR on the EC2 server
             aws ecr get-login-password --region $REGION | sudo docker login --username AWS --password-stdin $REGISTRY
             
             # --- UPDATE PRODUCT SERVICE ---
-            # Added -p 5001:5001 so the port is exposed to the internet
             sudo docker pull $REGISTRY/cloudmart-product-service:latest
             sudo docker rm -f product-service || true
             sudo docker run -d --name product-service \
               -p 5001:5001 \
               --network cloudmart-network \
-              -e DB_HOST=db \
-              -e DB_USER=root \
-              -e DB_PASSWORD=cloudmart_password \
+              -e DB_HOST=${{ secrets.DB_HOST }} \
+              -e DB_USER=${{ secrets.DB_USER }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
               -e DB_NAME=cloudmart \
               $REGISTRY/cloudmart-product-service:latest
 
@@ -73,11 +72,11 @@ jobs:
             sudo docker pull $REGISTRY/cloudmart-order-service:latest
             sudo docker rm -f order-service || true
             sudo docker run -d --name order-service \
-              -p 8080:8080 \ 
+              -p 8080:8080 \
               --network cloudmart-network \
-              -e DB_HOST=db \
-              -e DB_USER=root \
-              -e DB_PASSWORD=cloudmart_password \
+              -e DB_HOST=${{ secrets.DB_HOST }} \
+              -e DB_USER=${{ secrets.DB_USER }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
               -e DB_NAME=cloudmart \
               $REGISTRY/cloudmart-order-service:latest
 
@@ -88,3 +87,6 @@ jobs:
               --name frontend \
               --network cloudmart-network \
               $REGISTRY/cloudmart-frontend:latest
+
+            # Cleanup: Deletes old images to keep your disk from getting full again
+            sudo docker image prune -f
