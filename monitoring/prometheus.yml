@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 5s # How often to grab data. 5s is fast for testing!
+  evaluation_interval: 5s
+
+scrape_configs:
+  # 1. Prometheus monitoring itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # 2. Your CloudMart Python API
+  - job_name: 'cloudmart-api'
+    static_configs:
+      - targets: ['product-service:5001']
+
+  # 3. Your EC2 Infrastructure (The new Node Exporter)
+  - job_name: 'ec2-host'
+    static_configs:
+      - targets: ['node-exporter:9100']
