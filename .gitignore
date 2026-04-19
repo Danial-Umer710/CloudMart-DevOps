@@ -1,6 +1,8 @@
 .terraform/
 terraform-docs/.terraform/
-aws/
-awscliv2.zip
+terraform.tfstate*
+terraform-docs/terraform.tfstate*
 *.zip
-node_modules/
+awscliv2.zip
+.env
+.DS_Store

@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: cloudmart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      containers:
+      - name: product-service
+        image: cloudmart-product-service:latest
+        imagePullPolicy: Never # Critical: Tells K8s to use the local build
+        ports:
+        - containerPort: 5001
+        env:
+        - name: DB_HOST
+          value: "db"
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secrets
+              key: ROOT_PASSWORD
+        - name: DB_NAME
+          value: "cloudmart"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: cloudmart
+spec:
+  selector:
+    app: product-service
+  ports:
+    - protocol: TCP
+      port: 5001
+      targetPort: 5001
