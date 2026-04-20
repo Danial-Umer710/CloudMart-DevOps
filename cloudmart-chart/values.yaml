@@ -1,0 +1,43 @@
+# CloudMart Global Control Panel
+
+frontend:
+  replicaCount: 3
+  image: cloudmart-frontend:latest
+  servicePort: 8080
+  resources:
+    requests:
+      cpu: "20m"
+      memory: "16Mi"
+    limits:
+      cpu: "50m"
+      memory: "32Mi"
+
+productService:
+  replicaCount: 2
+  image: cloudmart-product-service:latest
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+
+orderService:
+  replicaCount: 2
+  image: cloudmart-order-service:latest
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "150m"
+      memory: "128Mi"
+
+userService:
+  replicaCount: 2
+  image: cloudmart-user-service:latest
+
+database:
+  image: mysql:5.7
+  password: rootpassword

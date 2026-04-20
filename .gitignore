@@ -6,3 +6,5 @@ terraform-docs/terraform.tfstate*
 awscliv2.zip
 .env
 .DS_Store
+cloudmart-chart/charts/
+cloudmart-chart/tmp/

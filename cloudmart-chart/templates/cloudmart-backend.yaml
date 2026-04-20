@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudmart-api
+  namespace: cloudmart
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloudmart-api
+  template:
+    metadata:
+      labels:
+        app: cloudmart-api
+    spec:
+      containers:
+      - name: api-container
+        image: nginxdemos/hello:latest # Using a test image for now
+        ports:
+        - containerPort: 80

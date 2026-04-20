@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.orderService.replicaCount }}
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+      - name: order-service
+        image: {{ .Values.orderService.image }}
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5002
+        resources:
+{{ toYaml .Values.orderService.resources | indent 10 }}
+        env:
+        - name: DB_HOST
+          value: "db"
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secrets
+              key: ROOT_PASSWORD
+        - name: DB_NAME
+          value: "cloudmart"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: order-service
+  ports:
+    - protocol: TCP
+      port: 5002
+      targetPort: 5002

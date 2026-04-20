@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: cloudmart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+      - name: user-service
+        image: cloudmart-user-service:latest
+        imagePullPolicy: Never
+        env:
+        - name: DB_HOST
+          value: "db"
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secrets
+              key: ROOT_PASSWORD
+        - name: DB_NAME
+          value: "cloudmart"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: cloudmart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+      - name: order-service
+        image: cloudmart-order-service:latest
+        imagePullPolicy: Never
+        env:
+        - name: DB_HOST
+          value: "db"
+        - name: DB_USER
+          value: "root"
+        - name: DB_DATABASE # Note: Order service uses DB_DATABASE in your compose!
+          value: "cloudmart"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secrets
+              key: ROOT_PASSWORD
