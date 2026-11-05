@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudmart-api
-  namespace: cloudmart
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 2
   selector:

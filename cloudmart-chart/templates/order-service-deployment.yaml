@@ -31,7 +31,7 @@ spec:
             secretKeyRef:
               name: mysql-secrets
               key: ROOT_PASSWORD
-        - name: DB_NAME
+        - name: DB_DATABASE
           value: "cloudmart"
 ---
 apiVersion: v1
