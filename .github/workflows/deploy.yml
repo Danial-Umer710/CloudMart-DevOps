@@ -2,17 +2,28 @@ name: Deploy CloudMart Services
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  workflow_dispatch:
 
+# AWS stages run only when the repository variable DEPLOY_TO_AWS is "true",
+# so the pipeline stays green while the Terraform stack is destroyed.
 jobs:
-  deploy:
+  validate:
+    uses: ./.github/workflows/ci.yml
+
+  build-and-push:
+    needs: validate
+    if: vars.DEPLOY_TO_AWS == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -20,7 +31,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and Push All Images
         env:
@@ -33,17 +44,32 @@ jobs:
             --build-arg REACT_APP_API_URL=$REACT_APP_API_URL \
             -f frontend/Dockerfile ./frontend
           docker push $ECR_REGISTRY/cloudmart-frontend:latest
-          
+
           # 2. Product Service
           docker build -t $ECR_REGISTRY/cloudmart-product-service:latest -f product-service/Dockerfile ./product-service
           docker push $ECR_REGISTRY/cloudmart-product-service:latest
-          
+
           # 3. Order Service
           docker build -t $ECR_REGISTRY/cloudmart-order-service:latest -f order-service/Dockerfile ./order-service
           docker push $ECR_REGISTRY/cloudmart-order-service:latest
 
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_PUBLIC_IP }}
           username: ubuntu
@@ -52,10 +78,10 @@ jobs:
             # Define Variables
             REGISTRY="${{ steps.login-ecr.outputs.registry }}"
             REGION="${{ secrets.AWS_REGION }}"
-            
+
             # Login to ECR on the EC2 server
             aws ecr get-login-password --region $REGION | sudo docker login --username AWS --password-stdin $REGISTRY
-            
+
             # --- UPDATE PRODUCT SERVICE ---
             sudo docker pull $REGISTRY/cloudmart-product-service:latest
             sudo docker rm -f product-service || true

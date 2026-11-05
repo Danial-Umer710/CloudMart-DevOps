@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_call:
+
+jobs:
+  lint-iac:
+    name: Validate Terraform, Helm, Kubernetes, Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform fmt + validate
+        working-directory: terraform-docs
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false
+          terraform validate
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+
+      - name: Helm lint + render
+        run: |
+          helm lint cloudmart-chart
+          helm template cloudmart cloudmart-chart --namespace cloudmart > /dev/null
+
+      - name: Kubernetes manifest schema check
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          ./kubeconform -strict -summary k8s/*.yaml
+          helm template cloudmart cloudmart-chart --namespace cloudmart | ./kubeconform -strict -summary
+
+      - name: Docker Compose config
+        run: docker compose config -q
+
+  integration:
+    name: Build images + API smoke test
+    needs: lint-iac
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start stack
+        run: docker compose up -d --build
+
+      - name: Smoke test
+        run: ./scripts/smoke_test.sh
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
